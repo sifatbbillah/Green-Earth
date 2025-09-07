@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Green Earth</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+
+  <!-- Navbar -->
+  <header class="navbar">
+    <div class="logo">🌱 Green Earth</div>
+    <nav class="menu">
+      <a href="#about">About</a>
+      <a href="#impact">Impact</a>
+      <a href="#form">Plant a Tree</a>
+    </nav>
+    <button class="btn">Plant a Tree</button>
+  </header>
+
+  <!-- Banner -->
+  <section class="banner">
+    <h1>Together for a Greener Planet</h1>
+    <p>Join our campaign to plant trees and restore nature.</p>
+    <button class="btn">Get Started</button>
+  </section>
+
+  <!-- Categories and Plants -->
+  <main class="main">
+    <aside id="categories" class="categories"></aside>
+    <section id="plants" class="plants"></section>
+    <aside class="cart">
+      <h3>Your Cart</h3>
+      <ul id="cart-items"></ul>
+      <p><strong>Total: $<span id="cart-total">0</span></strong></p>
+    </aside>
+  </main>
+
+  <!-- Spinner -->
+  <div id="spinner" class="spinner">Loading...</div>
+
+  <!-- Modal -->
+  <div id="modal" class="modal">
+    <div id="modal-content" class="modal-content"></div>
+  </div>
+
+  <!-- About -->
+  <section id="about" class="about">
+    <img src="https://via.placeholder.com/200" alt="Plant">
+    <div>
+      <h2>About the Campaign</h2>
+      <p>Green Earth is a global tree-planting campaign to restore forests, clean the air, and improve biodiversity.</p>
+    </div>
+  </section>
+
+  <!-- Impact -->
+  <section id="impact" class="impact">
+    <div class="impact-card">500K+ Trees Planted</div>
+    <div class="impact-card">120+ Communities Involved</div>
+    <div class="impact-card">30+ Countries Reached</div>
+  </section>
+
+  <!-- Form -->
+  <section id="form" class="form-section">
+    <h2>Plant a Tree Today</h2>
+    <form>
+      <input type="text" placeholder="Your Name" required>
+      <input type="email" placeholder="Your Email" required>
+      <input type="number" placeholder="Number of Trees" required>
+      <button type="submit" class="btn">Contribute Now</button>
+    </form>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <p>© 2025 Green Earth. All Rights Reserved.</p>
+  </footer>
+
+  <script src="./script.js"></script>
+</body>
+</html>
