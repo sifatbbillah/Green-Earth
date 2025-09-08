@@ -34,31 +34,73 @@ body {
 /* ---------- BANNER ---------- */
 .banner {
   position: relative;
-  padding: 64px 20px 88px;
+  padding: 80px 20px 100px;
   background: #e9f7ec;
   text-align: center;
   overflow: hidden;
 }
+
 .banner::before,
 .banner::after {
   content: "";
   position: absolute;
-  top: 18px;
-  width: 360px;
-  height: 360px;
-  background-image: url('https://images.unsplash.com/photo-1501004318641-b39e6451bec6?auto=format&fit=crop&w=800&q=60');
-  background-size: cover;
+  top: 50%;
+  width: 200px;
+  height: 200px;
+  background-image: url('./assets/hero-leaf1.png');
+  background-size: contain;
   background-repeat: no-repeat;
   opacity: 0.95;
-  transform: scaleX(1);
+  transform: translateY(-50%);
 }
-.banner::before { left: -140px; transform: rotate(-8deg); border-radius: 6px; }
-.banner::after  { right: -140px; transform: scaleX(-1) rotate(8deg); border-radius: 6px; }
-.banner-inner { max-width: 900px; margin: 0 auto; position: relative; z-index: 2; }
-.banner h1 { font-size: 2rem; margin-bottom: 8px; color:#15321f; }
-.banner p { color:#375b46; margin-bottom: 18px; }
-.btn { cursor: pointer; border: none; }
-.btn-primary { background: #f2c94c; color:#142b1d; padding: 10px 18px; border-radius: 20px; }
+
+.banner::before {
+  left: 0;
+  transform: rotate(0deg) translateY(-50%);
+}
+
+.banner::after {
+  right: 0;
+  transform: scaleX(-1) rotate(0deg) translateY(-50%);
+}
+
+.banner-inner {
+  max-width: 700px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 2;
+}
+
+.banner h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 10px;
+  color: #15321f;
+}
+
+.banner p {
+  color: #375b46;
+  margin-bottom: 20px;
+  font-size: 0.95rem;
+}
+
+.btn {
+  cursor: pointer;
+  border: none;
+  font-size: 0.9rem;
+}
+
+.btn-primary {
+  background: #f2c94c;
+  color: #142b1d;
+  padding: 10px 20px;
+  border-radius: 20px;
+  transition: background 0.3s ease;
+}
+
+.btn-primary:hover {
+  background: #e0b83d;
+}
 
 /* ---------- LAYOUT ---------- */
 .main {

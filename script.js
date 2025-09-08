@@ -10,132 +10,194 @@ const modalClose = document.getElementById("modal-close");
 
 let cart = [];
 
-// API base - (as provided in your README). If offline, many demo placeholders will be used.
 const API_BASE = "https://openapi.programming-hero.com/api";
+
+// Category list with slugs and friendly names
+const CATEGORIES = [
+  { id: "all", category: "All Trees" },
+  { id: "fruit-trees", category: "Fruit Trees" },
+  { id: "flowering-trees", category: "Flowering Trees" },
+  { id: "shade-trees", category: "Shade Trees" },
+  { id: "medicinal-trees", category: "Medicinal Trees" },
+  { id: "timber-trees", category: "Timber Trees" },
+  { id: "evergreen-trees", category: "Evergreen Trees" },
+  { id: "ornamental-plants", category: "Ornamental Plants" },
+  { id: "bamboo", category: "Bamboo" },
+  { id: "climbers", category: "Climbers" },
+  { id: "aquatic-plants", category: "Aquatic Plants" }
+];
+
+// Map slugs to keywords used to match real API/demo categories
+const categoryKeywords = {
+  "fruit-trees": ["fruit", "fruit tree", "fruit trees", "mango", "guava", "citrus", "orange", "lemon", "mulberry"],
+  "flowering-trees": ["flower", "flowering", "flower tree", "flowering tree", "blossom"],
+  "shade-trees": ["shade", "shade tree", "shade trees", "oak", "pine"],
+  "medicinal-trees": ["medicinal", "neem", "herbal"],
+  "timber-trees": ["timber", "timber tree", "timber trees"],
+  "evergreen-trees": ["evergreen", "pine", "spruce"],
+  "ornamental-plants": ["ornamental", "ornamental plant", "palm"],
+  "bamboo": ["bamboo"],
+  "climbers": ["climber", "climbing", "climber plant"],
+  "aquatic-plants": ["aquatic", "water", "pond"]
+};
 
 // Start
 document.addEventListener("DOMContentLoaded", () => {
-  loadCategories();
-  loadPlants(); // load all plants initially
+  renderCategories(CATEGORIES);
+  loadPlants("all"); // load all initially
   setupModal();
 });
 
-// Helper: Show / hide spinner
-function showSpinner() { spinner.style.display = "flex"; spinner.setAttribute("aria-hidden","false"); }
-function hideSpinner() { spinner.style.display = "none"; spinner.setAttribute("aria-hidden","true"); }
-
-// Load categories from API
-async function loadCategories() {
-  try {
-    showSpinner();
-    const res = await fetch(`${API_BASE}/categories`);
-    const json = await res.json();
-    const categories = json.categories || [];
-    renderCategories(categories.slice(0,12)); // show up to 12 for layout
-  } catch (err) {
-    console.error("Error loading categories:", err);
-    // fallback demo categories
-    renderCategories([
-      { id: 1, category: "All Trees" },
-      { id: 2, category: "Fruit Trees" },
-      { id: 3, category: "Shade Trees" },
-      { id: 4, category: "Medicinal Trees" },
-    ]);
-  } finally {
-    hideSpinner();
+// Show/hide spinner
+function showSpinner() {
+  if (spinner) {
+    spinner.style.display = "flex";
+    spinner.setAttribute("aria-hidden", "false");
   }
 }
 
-function renderCategories(categories) {
-  categoriesContainer.innerHTML = "";
-  // add a default "All" button
-  const allBtn = createCategoryButton({ id: null, category: "All Trees" }, true);
-  categoriesContainer.appendChild(allBtn);
+function hideSpinner() {
+  if (spinner) {
+    spinner.style.display = "none";
+    spinner.setAttribute("aria-hidden", "true");
+  }
+}
 
-  categories.forEach(cat => {
-    const btn = createCategoryButton(cat, false);
+// Render categories
+function renderCategories(categories) {
+  if (!categoriesContainer) return;
+  categoriesContainer.innerHTML = "";
+
+  categories.forEach((cat, index) => {
+    const btn = createCategoryButton(cat, index === 0); // first active
     categoriesContainer.appendChild(btn);
   });
 }
 
-function createCategoryButton(cat, active=false) {
+function createCategoryButton(cat, active = false) {
   const btn = document.createElement("button");
   btn.className = "category-btn" + (active ? " active" : "");
+  btn.type = "button";
   btn.innerText = cat.category;
+  btn.dataset.cat = cat.id;
   btn.onclick = () => {
     document.querySelectorAll(".category-btn").forEach(b => b.classList.remove("active"));
     btn.classList.add("active");
+    // loadPlants will filter locally by slug
     loadPlants(cat.id);
   };
   return btn;
 }
 
-// Load plants (optionally by category)
-async function loadPlants(categoryId = null) {
+// Main loader: fetch full plants list then filter locally by category slug
+async function loadPlants(categoryId = "all") {
   try {
     showSpinner();
-    let url = `${API_BASE}/plants`;
-    if (categoryId) url = `${API_BASE}/category/${categoryId}`;
-    const res = await fetch(url);
-    const json = await res.json();
-    // The API structure varies: data might be under .data or .plants, so try a few keys
-    let plants = [];
-    if (json.status === "success" && json.data) {
-      // sometimes data contains array of plants
-      plants = Array.isArray(json.data) ? json.data : (json.data.plants || []);
-    } else if (json.plants) {
-      plants = json.plants;
-    } else if (Array.isArray(json)) {
-      plants = json;
-    } else {
-      plants = [];
+
+    // Try to fetch a full list of plants from API (some APIs return all in /plants)
+    let fetched = [];
+    try {
+      const res = await fetch(`${API_BASE}/plants`);
+      const json = await res.json();
+      if (json) {
+        if (json.status === "success" && json.data) {
+          fetched = Array.isArray(json.data) ? json.data : (json.data.plants || []);
+        } else if (Array.isArray(json)) {
+          fetched = json;
+        } else if (json.plants && Array.isArray(json.plants)) {
+          fetched = json.plants;
+        } else if (json.data && Array.isArray(json.data)) {
+          fetched = json.data;
+        }
+      }
+    } catch (e) {
+      console.warn("API /plants fetch failed, using demo data as primary source.", e);
+      fetched = [];
     }
 
-    // If empty, use fallback demo items
+    // If API didn't return anything, use demo data as the source
+    let plantsSource = (Array.isArray(fetched) && fetched.length > 0) ? fetched : demoPlants();
+
+    // If a specific category is requested (not "all"), filter locally using keywords map
+    let plants = plantsSource;
+    if (categoryId && categoryId !== "all") {
+      const keywords = (categoryKeywords[categoryId] || [categoryId.replace(/-/g, " ")])
+        .map(k => k.toLowerCase());
+
+      const matchesCategory = (p) => {
+        const combined = [
+          p.category,
+          p.category_name,
+          p.name,
+          p.short_description,
+          p.description,
+          p.tags && p.tags.join(" ")
+        ].filter(Boolean).join(" ").toLowerCase();
+
+        return keywords.some(kw => combined.includes(kw));
+      };
+
+      plants = plantsSource.filter(matchesCategory);
+
+      // If API returned nothing matching, try filtering demoPlants specifically
+      if (!plants || plants.length === 0) {
+        const demoFiltered = demoPlants().filter(matchesCategory);
+        if (demoFiltered.length > 0) plants = demoFiltered;
+      }
+    }
+
+    // If still empty, fallback to full demo list
     if (!plants || plants.length === 0) {
       plants = demoPlants();
     }
 
-    renderPlants(plants.slice(0, 9)); // show first 9 for grid like screenshot
+    renderPlants(plants.slice(0, 9));
   } catch (err) {
     console.error("Error loading plants:", err);
-    renderPlants(demoPlants());
+    renderPlants(demoPlants().slice(0, 9));
   } finally {
     hideSpinner();
   }
 }
 
 function renderPlants(plants) {
+  if (!plantsGrid) return;
   plantsGrid.innerHTML = "";
+
   plants.forEach(p => {
     const card = document.createElement("article");
     card.className = "plant-card";
+    const imageSrc = p.image || p.thumbnail || 'https://via.placeholder.com/400x240?text=Plant';
+    const displayName = p.name || 'Unknown Tree';
+    const shortDesc = p.short_description || p.description || 'A great tree to plant in your garden.';
+    const categoryLabel = p.category || p.category_name || 'Tree';
+    const priceVal = Number(p.price || p.cost || 500);
+
     card.innerHTML = `
-      <img src="${p.image || p.thumbnail || 'https://via.placeholder.com/400x240?text=Plant'}" alt="${escapeHtml(p.name || 'Plant')}">
-      <h3 class="plant-name" data-id="${p.id || ''}">${escapeHtml(p.name || 'Unknown Tree')}</h3>
-      <p class="plant-desc">${escapeHtml(p.short_description || p.description || 'A great tree to plant in your garden.')}</p>
+      <img src="${imageSrc}" alt="${escapeHtml(displayName)}">
+      <h3 class="plant-name" data-id="${p.id || ''}">${escapeHtml(displayName)}</h3>
+      <p class="plant-desc">${escapeHtml(shortDesc)}</p>
       <div class="plant-meta">
-        <span class="cat">${escapeHtml(p.category || p.category_name || 'Fruit Tree')}</span>
-        <span class="price">$${Number(p.price || p.cost || 500)}</span>
+        <span class="cat">${escapeHtml(categoryLabel)}</span>
+        <span class="price">$${priceVal.toFixed(2)}</span>
       </div>
-      <button class="add-cart" data-id="${p.id || ''}" data-name="${escapeHtml(p.name || 'Tree')}" data-price="${Number(p.price || p.cost || 500)}">Add to Cart</button>
+      <button class="add-cart" data-id="${p.id || ''}" data-name="${escapeHtml(displayName)}" data-price="${priceVal}">Add to Cart</button>
     `;
     plantsGrid.appendChild(card);
 
-    // attach events
     const nameEl = card.querySelector(".plant-name");
-    nameEl.addEventListener("click", () => showDetails(p.id, p));
+    if (nameEl) nameEl.addEventListener("click", () => showDetails(p.id, p));
 
     const addBtn = card.querySelector(".add-cart");
-    addBtn.addEventListener("click", () => addToCart({
-      id: p.id || Math.random().toString(36).slice(2,9),
+    if (addBtn) addBtn.addEventListener("click", () => addToCart({
+      id: p.id || Math.random().toString(36).slice(2, 9),
       name: p.name || 'Tree',
-      price: Number(p.price || p.cost || 500)
+      price: priceVal
     }));
   });
 }
 
-// show details in modal; if API supports detail call, try that; otherwise use passed object
+// Show details in modal
 async function showDetails(id, fallbackObj = null) {
   try {
     showSpinner();
@@ -146,7 +208,7 @@ async function showDetails(id, fallbackObj = null) {
         const json = await res.json();
         if (json.status === "success" && json.data) plant = json.data;
         else if (json.name) plant = json;
-      } catch(e) {
+      } catch (e) {
         // ignore inner error and use fallback
       }
     }
@@ -155,13 +217,13 @@ async function showDetails(id, fallbackObj = null) {
 
     modalContent.innerHTML = `
       <h2>${escapeHtml(plant.name || 'Tree')}</h2>
-      <img style="width:100%;max-height:320px;object-fit:cover;border-radius:8px;margin:8px 0" src="${plant.image || plant.thumbnail || 'https://via.placeholder.com/900x400?text=Plant'}" alt="${escapeHtml(plant.name||'Tree')}">
+      <img style="width:100%;max-height:320px;object-fit:cover;border-radius:8px;margin:8px 0" src="${plant.image || plant.thumbnail || 'https://via.placeholder.com/900x400?text=Plant'}" alt="${escapeHtml(plant.name || 'Tree')}">
       <p>${escapeHtml(plant.description || plant.long_description || plant.short_description || 'No extended description available.')}</p>
-      <p><strong>Category:</strong> ${escapeHtml(plant.category || plant.category_name || 'Fruit Tree')}</p>
-      <p><strong>Price:</strong> $${Number(plant.price || plant.cost || 500)}</p>
+      <p><strong>Category:</strong> ${escapeHtml(plant.category || plant.category_name || 'Tree')}</p>
+      <p><strong>Price:</strong> $${Number(plant.price || plant.cost || 500).toFixed(2)}</p>
     `;
     modal.style.display = "flex";
-    modal.setAttribute("aria-hidden","false");
+    modal.setAttribute("aria-hidden", "false");
   } catch (err) {
     console.error("Error showing details:", err);
   } finally {
@@ -171,53 +233,64 @@ async function showDetails(id, fallbackObj = null) {
 
 // Modal helpers
 function setupModal() {
+  if (!modalClose || !modal) return;
   modalClose.addEventListener("click", closeModal);
   modal.addEventListener("click", (e) => {
     if (e.target === modal) closeModal();
   });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
 }
+
 function closeModal() {
+  if (!modal) return;
   modal.style.display = "none";
-  modal.setAttribute("aria-hidden","true");
+  modal.setAttribute("aria-hidden", "true");
 }
 
-// CART FUNCTIONALITY
+// Cart functionality
 function addToCart(item) {
   const existing = cart.find(ci => ci.id === item.id);
-  if (existing) existing.qty += 1;
-  else cart.push({ ...item, qty: 1 });
+  if (existing) {
+    existing.qty += 1;
+    alert(`${item.name} quantity updated in cart (x${existing.qty})`);
+  } else {
+    cart.push({ ...item, qty: 1 });
+    alert(`${item.name} added to cart ✅`);
+  }
   updateCartUI();
 }
+
 function removeFromCart(id) {
   cart = cart.filter(ci => ci.id !== id);
   updateCartUI();
 }
+
 function updateCartUI() {
+  if (!cartItemsEl || !cartTotalEl) return;
   cartItemsEl.innerHTML = "";
   let total = 0;
   cart.forEach(ci => {
     total += ci.price * ci.qty;
     const li = document.createElement("li");
-    li.innerHTML = `<span>${escapeHtml(ci.name)} (x${ci.qty}) - $${ci.price * ci.qty}</span> <button class="remove-btn" data-id="${ci.id}">✖</button>`;
+    li.innerHTML = `<span>${escapeHtml(ci.name)} (x${ci.qty}) - $${(ci.price * ci.qty).toFixed(2)}</span> <button class="remove-btn" data-id="${ci.id}">✖</button>`;
     cartItemsEl.appendChild(li);
   });
-  cartTotalEl.innerText = total;
-  // attach remove handlers
+  cartTotalEl.innerText = `$${total.toFixed(2)}`;
+
   cartItemsEl.querySelectorAll(".remove-btn").forEach(btn => {
     btn.addEventListener("click", () => removeFromCart(btn.dataset.id));
   });
 }
 
-// small helpers
-function escapeHtml(s){
-  if (!s && s !== 0) return "";
-  return String(s).replace(/[&<>"'`=\/]/g, function(ch) {
-    return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','/':'&#x2F;','`':'&#x60;','=':'&#x3D;'})[ch];
+// Escape HTML characters
+function escapeHtml(s) {
+  if (s === null || s === undefined) return "";
+  return String(s).replace(/[&<>"'`=\/]/g, function (ch) {
+    return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '/': '&#x2F;', '`': '&#x60;', '=': '&#x3D;' })[ch];
   });
 }
 
-// Demo fallback data (if API returns nothing)
+// Demo fallback data
 function demoPlants() {
   return [
     { id: 101, name: "Mango Tree", short_description: "A fast-growing tree producing delicious mangoes.", category: "Fruit Tree", price: 500, image: "https://images.unsplash.com/photo-1524594154900-6f6e7b0d2c40?auto=format&fit=crop&w=800&q=60" },
@@ -232,7 +305,7 @@ function demoPlants() {
   ];
 }
 
-// Donate form simple handler
+// Donate form simple handler (unchanged)
 const donateForm = document.getElementById("donate-form");
 if (donateForm) {
   donateForm.addEventListener("submit", (e) => {
